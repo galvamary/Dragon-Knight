@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dragon Knight Runtime Frame Aligner</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111827;
+      --panel: #161c27;
+      --panel-2: #0f141d;
+      --line: #2b3648;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --blue: #60a5fa;
+      --yellow: #facc15;
+      --green: #4ade80;
+      --accent: #38bdf8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .window-bar {
+      height: 34px;
+      display: grid;
+      grid-template-columns: 110px 1fr 110px;
+      align-items: center;
+      padding: 0 16px;
+      background: #2d333d;
+      border-bottom: 1px solid #10151e;
+      color: #d1d5db;
+      font-weight: 700;
+    }
+
+    .dots {
+      display: flex;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+    }
+
+    .red { background: #ff5f57; }
+    .yellow-dot { background: #febc2e; }
+    .green-dot { background: #28c840; }
+
+    .title {
+      text-align: center;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 180px minmax(560px, 1fr) 240px;
+      gap: 16px;
+      padding: 14px 16px 16px;
+    }
+
+    .info {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .stage-wrap {
+      min-width: 0;
+    }
+
+    .legend {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      color: #cbd5e1;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .legend span::before {
+      content: "";
+      display: inline-block;
+      width: 22px;
+      height: 3px;
+      margin-right: 6px;
+      vertical-align: middle;
+      background: currentColor;
+    }
+
+    .legend .blue { color: var(--blue); }
+    .legend .yellow { color: var(--yellow); }
+    .legend .green { color: var(--green); }
+
+    .stage {
+      width: min(76vh, 760px);
+      max-width: 100%;
+      aspect-ratio: 1;
+      margin: 0 auto;
+      background: var(--panel-2);
+      border: 2px solid #0a0f17;
+      box-shadow: 0 18px 36px rgba(0, 0, 0, .26);
+      image-rendering: pixelated;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .controls {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button, .file-button {
+      appearance: none;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #f8fafc;
+      color: #111827;
+      padding: 7px 12px;
+      font-weight: 800;
+      cursor: pointer;
+      min-height: 32px;
+    }
+
+    button:hover, .file-button:hover {
+      background: #e0f2fe;
+    }
+
+    button.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, .35);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: .45;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .range-row {
+      display: grid;
+      grid-template-columns: 130px 1fr 52px;
+      align-items: center;
+      gap: 10px;
+      color: #d1d5db;
+      font-weight: 700;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    fieldset {
+      margin: 0 0 16px;
+      padding: 10px;
+      border: 2px solid #4b5563;
+      border-radius: 4px;
+      background: rgba(15, 20, 29, .55);
+    }
+
+    legend {
+      padding: 0 6px;
+      color: #d1d5db;
+      font-weight: 800;
+    }
+
+    .frame-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .frame-button {
+      width: 100%;
+      padding: 7px 10px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ghost-list {
+      display: grid;
+      gap: 8px;
+      color: #cbd5e1;
+      font-weight: 800;
+    }
+
+    .ghost-list label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ghost-list input {
+      width: 17px;
+      height: 17px;
+      accent-color: #3b82f6;
+    }
+
+    .ghost-1 { color: #ef4444; }
+    .ghost-2 { color: #38bdf8; }
+    .ghost-3 { color: #22c55e; }
+    .ghost-4 { color: #eab308; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-variant-numeric: tabular-nums;
+    }
+
+    th, td {
+      padding: 6px 4px;
+      border-bottom: 1px solid var(--line);
+      text-align: right;
+    }
+
+    th:first-child,
+    td:first-child {
+      text-align: left;
+    }
+
+    tr.selected {
+      color: #bae6fd;
+      font-weight: 900;
+    }
+
+    .status {
+      min-height: 22px;
+      color: #cbd5e1;
+      font-weight: 700;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1080px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .side {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="window-bar">
+    <div class="dots" aria-hidden="true">
+      <span class="dot red"></span>
+      <span class="dot yellow-dot"></span>
+      <span class="dot green-dot"></span>
+    </div>
+    <div class="title">Dragon Knight Runtime Frame Aligner</div>
+    <div></div>
+  </div>
+
+  <main class="app">
+    <aside>
+      <p class="info" id="frameInfo">4 frames 256x256</p>
+      <fieldset>
+        <legend>Input</legend>
+        <label class="file-button" for="fileInput">Load PNG Frames</label>
+        <input id="fileInput" type="file" accept="image/png" multiple>
+        <p class="hint">기본값은 현재 hero idle 4프레임입니다. 파일을 고르면 이름순으로 다시 로드합니다.</p>
+      </fieldset>
+      <fieldset>
+        <legend>Export</legend>
+        <div class="frame-list">
+          <button id="exportPngs">Export PNGs</button>
+          <button id="exportSheet">Export Sheet</button>
+          <button id="exportJson">Export Offsets JSON</button>
+        </div>
+      </fieldset>
+    </aside>
+
+    <section class="stage-wrap">
+      <div class="legend">
+        <span class="blue">vertical center</span>
+        <span class="yellow">horizontal ref</span>
+        <span class="green">foot baseline</span>
+      </div>
+      <div class="stage">
+        <canvas id="stage" width="768" height="768" aria-label="sprite frame aligner canvas"></canvas>
+      </div>
+      <div class="controls">
+        <div class="button-row">
+          <button id="prevFrame">Prev</button>
+          <button id="nextFrame">Next</button>
+          <button data-nudge="-1,0">Left</button>
+          <button data-nudge="1,0">Right</button>
+          <button data-nudge="0,-1">Up</button>
+          <button data-nudge="0,1">Down</button>
+          <button id="resetFrame">Reset Frame</button>
+          <button id="resetAll">Reset All</button>
+          <button id="playPause">Play</button>
+        </div>
+        <div class="button-row">
+          <button id="ghostSelected" class="active">Ghost Selected</button>
+          <button id="ghostAll">Ghost All</button>
+          <button id="ghostNeighbors">Ghost Neighbors</button>
+          <button id="clearGhosts">Clear Ghosts</button>
+        </div>
+        <div class="range-row">
+          <label for="ghostOpacity">Ghost opacity</label>
+          <input id="ghostOpacity" type="range" min="0" max="1" step="0.05" value="0.35">
+          <output id="ghostOpacityValue">0.35</output>
+        </div>
+        <div class="status" id="status">Loading frames...</div>
+        <div class="hint">방향키 1px 이동, Shift+방향키 5px 이동, [ ] 프레임 전환, Space 재생, 0 현재 프레임 리셋</div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <fieldset>
+        <legend>View frame</legend>
+        <div class="frame-list" id="frameButtons"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Ghost frame layers</legend>
+        <div class="ghost-list" id="ghostToggles"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Offsets</legend>
+        <table>
+          <thead>
+            <tr><th>Frame</th><th>dx</th><th>dy</th></tr>
+          </thead>
+          <tbody id="offsetRows"></tbody>
+        </table>
+      </fieldset>
+    </aside>
+  </main>
+
+  <script>
+    const DEFAULT_FRAME_PATHS = [
+      "../../DragonKnight/Assets/Art/Hero Sprite/Idle Frames Processed/Final 256/hero_idle_frame_01_256.png",
+      "../../DragonKnight/Assets/Art/Hero Sprite/Idle Frames Processed/Final 256/hero_idle_frame_02_256.png",
+      "../../DragonKnight/Assets/Art/Hero Sprite/Idle Frames Processed/Final 256/hero_idle_frame_03_256.png",
+      "../../DragonKnight/Assets/Art/Hero Sprite/Idle Frames Processed/Final 256/hero_idle_frame_04_256.png"
+    ];
+
+    const state = {
+      frames: [],
+      selected: 0,
+      ghostOpacity: 0.35,
+      showGhosts: new Set([0, 1, 2, 3]),
+      isPlaying: false,
+      lastTick: 0,
+      frameMs: 180,
+      referenceY: 330,
+      baselineY: 765,
+      centerX: 384,
+      centerY: 384,
+      scale: 3
+    };
+
+    const canvas = document.getElementById("stage");
+    const ctx = canvas.getContext("2d");
+    const frameButtons = document.getElementById("frameButtons");
+    const ghostToggles = document.getElementById("ghostToggles");
+    const offsetRows = document.getElementById("offsetRows");
+    const statusEl = document.getElementById("status");
+    const frameInfo = document.getElementById("frameInfo");
+    const playPause = document.getElementById("playPause");
+    const ghostOpacity = document.getElementById("ghostOpacity");
+    const ghostOpacityValue = document.getElementById("ghostOpacityValue");
+
+    ctx.imageSmoothingEnabled = false;
+
+    function paddedFrameNumber(index) {
+      return String(index + 1).padStart(2, "0");
+    }
+
+    function loadImage(src, name) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve({
+          image,
+          name,
+          dx: 0,
+          dy: 0,
+          width: image.naturalWidth,
+          height: image.naturalHeight
+        });
+        image.onerror = () => reject(new Error(`Failed to load ${src}`));
+        image.src = src;
+      });
+    }
+
+    async function loadDefaultFrames() {
+      const frames = await Promise.all(DEFAULT_FRAME_PATHS.map((path) => {
+        const name = decodeURIComponent(path.split("/").pop());
+        return loadImage(path, name);
+      }));
+      setFrames(frames, "Loaded default hero idle frames.");
+    }
+
+    async function loadSelectedFiles(files) {
+      const sorted = [...files].sort((a, b) => a.name.localeCompare(b.name));
+      const frames = await Promise.all(sorted.map((file) => {
+        const url = URL.createObjectURL(file);
+        return loadImage(url, file.name);
+      }));
+      setFrames(frames, `Loaded ${frames.length} frame(s) from file picker.`);
+    }
+
+    function setFrames(frames, message) {
+      state.frames = frames;
+      state.selected = 0;
+      state.showGhosts = new Set(frames.map((_, index) => index));
+      const first = frames[0];
+      frameInfo.textContent = `${frames.length} frames ${first.width}x${first.height}`;
+      statusEl.textContent = message;
+      buildPanels();
+      render();
+    }
+
+    function buildPanels() {
+      frameButtons.innerHTML = "";
+      ghostToggles.innerHTML = "";
+      offsetRows.innerHTML = "";
+
+      state.frames.forEach((frame, index) => {
+        const frameButton = document.createElement("button");
+        frameButton.className = "frame-button";
+        frameButton.textContent = paddedFrameNumber(index);
+        frameButton.addEventListener("click", () => selectFrame(index));
+        frameButtons.appendChild(frameButton);
+
+        const ghostLabel = document.createElement("label");
+        ghostLabel.className = `ghost-${(index % 4) + 1}`;
+        const ghostCheckbox = document.createElement("input");
+        ghostCheckbox.type = "checkbox";
+        ghostCheckbox.checked = state.showGhosts.has(index);
+        ghostCheckbox.addEventListener("change", () => {
+          if (ghostCheckbox.checked) state.showGhosts.add(index);
+          else state.showGhosts.delete(index);
+          render();
+        });
+        ghostLabel.appendChild(ghostCheckbox);
+        ghostLabel.append(` ${paddedFrameNumber(index)}`);
+        ghostToggles.appendChild(ghostLabel);
+
+        const row = document.createElement("tr");
+        row.innerHTML = `<td>${paddedFrameNumber(index)}</td><td>0</td><td>0</td>`;
+        offsetRows.appendChild(row);
+      });
+
+      refreshPanels();
+    }
+
+    function refreshPanels() {
+      [...frameButtons.children].forEach((button, index) => {
+        button.classList.toggle("active", index === state.selected);
+      });
+
+      [...offsetRows.children].forEach((row, index) => {
+        const frame = state.frames[index];
+        row.classList.toggle("selected", index === state.selected);
+        row.children[1].textContent = frame.dx;
+        row.children[2].textContent = frame.dy;
+      });
+    }
+
+    function selectFrame(index) {
+      if (!state.frames.length) return;
+      state.selected = (index + state.frames.length) % state.frames.length;
+      refreshPanels();
+      render();
+    }
+
+    function nudge(dx, dy) {
+      const frame = state.frames[state.selected];
+      if (!frame) return;
+      frame.dx += dx;
+      frame.dy += dy;
+      statusEl.textContent = `${paddedFrameNumber(state.selected)} dx=${frame.dx} dy=${frame.dy}`;
+      refreshPanels();
+      render();
+    }
+
+    function resetFrame() {
+      const frame = state.frames[state.selected];
+      if (!frame) return;
+      frame.dx = 0;
+      frame.dy = 0;
+      statusEl.textContent = `${paddedFrameNumber(state.selected)} reset.`;
+      refreshPanels();
+      render();
+    }
+
+    function resetAll() {
+      state.frames.forEach((frame) => {
+        frame.dx = 0;
+        frame.dy = 0;
+      });
+      statusEl.textContent = "All offsets reset.";
+      refreshPanels();
+      render();
+    }
+
+    function frameDrawPosition(frame) {
+      const width = frame.width * state.scale;
+      const height = frame.height * state.scale;
+      const x = Math.round((canvas.width - width) / 2 + frame.dx * state.scale);
+      const y = Math.round(state.baselineY - height + frame.dy * state.scale);
+      return { x, y, width, height };
+    }
+
+    function drawFrame(frame, alpha) {
+      const pos = frameDrawPosition(frame);
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(frame.image, pos.x, pos.y, pos.width, pos.height);
+      ctx.globalAlpha = 1;
+    }
+
+    function drawGuides() {
+      ctx.save();
+      ctx.lineWidth = 2;
+
+      ctx.strokeStyle = "#60a5fa";
+      ctx.beginPath();
+      ctx.moveTo(state.centerX, 0);
+      ctx.lineTo(state.centerX, canvas.height);
+      ctx.stroke();
+
+      ctx.strokeStyle = "#facc15";
+      ctx.beginPath();
+      ctx.moveTo(0, state.referenceY);
+      ctx.lineTo(canvas.width, state.referenceY);
+      ctx.stroke();
+
+      ctx.strokeStyle = "#4ade80";
+      ctx.beginPath();
+      ctx.moveTo(0, state.baselineY);
+      ctx.lineTo(canvas.width, state.baselineY);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function render() {
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#0f141d";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      state.frames.forEach((frame, index) => {
+        if (index !== state.selected && state.showGhosts.has(index)) {
+          drawFrame(frame, state.ghostOpacity);
+        }
+      });
+
+      const selected = state.frames[state.selected];
+      if (selected) drawFrame(selected, 1);
+      drawGuides();
+      refreshPanels();
+    }
+
+    function togglePlayback() {
+      state.isPlaying = !state.isPlaying;
+      playPause.textContent = state.isPlaying ? "Pause" : "Play";
+      if (state.isPlaying) requestAnimationFrame(playLoop);
+    }
+
+    function playLoop(timestamp) {
+      if (!state.isPlaying) return;
+      if (!state.lastTick || timestamp - state.lastTick >= state.frameMs) {
+        selectFrame(state.selected + 1);
+        state.lastTick = timestamp;
+      }
+      requestAnimationFrame(playLoop);
+    }
+
+    function renderExportFrame(frame) {
+      const output = document.createElement("canvas");
+      output.width = frame.width;
+      output.height = frame.height;
+      const outputCtx = output.getContext("2d");
+      outputCtx.imageSmoothingEnabled = false;
+      outputCtx.clearRect(0, 0, output.width, output.height);
+      outputCtx.drawImage(frame.image, frame.dx, frame.dy);
+      return output;
+    }
+
+    function timestampSuffix() {
+      const now = new Date();
+      const parts = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, "0"),
+        String(now.getDate()).padStart(2, "0"),
+        String(now.getHours()).padStart(2, "0"),
+        String(now.getMinutes()).padStart(2, "0"),
+        String(now.getSeconds()).padStart(2, "0")
+      ];
+      return `${parts[0]}${parts[1]}${parts[2]}-${parts[3]}${parts[4]}${parts[5]}`;
+    }
+
+    function uniqueDownloadName(name, batchId = timestampSuffix()) {
+      return name.replace(/(\.[^.]+)$/, `-${batchId}$1`);
+    }
+
+    function triggerDownload(href, name) {
+      const link = document.createElement("a");
+      link.download = name;
+      link.href = href;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      window.setTimeout(() => link.remove(), 1000);
+    }
+
+    function downloadCanvas(canvasToDownload, name, batchId) {
+      triggerDownload(
+        canvasToDownload.toDataURL("image/png"),
+        uniqueDownloadName(name, batchId)
+      );
+    }
+
+    function exportPngs() {
+      const batchId = timestampSuffix();
+      state.frames.forEach((frame, index) => {
+        window.setTimeout(() => {
+          const output = renderExportFrame(frame);
+          const base = frame.name.replace(/\.png$/i, "");
+          downloadCanvas(output, `${base}_aligned_${paddedFrameNumber(index)}.png`, batchId);
+        }, index * 300);
+      });
+      statusEl.textContent = "Exporting aligned PNGs. If the browser asks, allow multiple downloads.";
+    }
+
+    function exportSheet() {
+      if (!state.frames.length) return;
+      const columns = 5;
+      const rows = 2;
+      const width = state.frames[0].width;
+      const height = state.frames[0].height;
+      const sheet = document.createElement("canvas");
+      sheet.width = width * columns;
+      sheet.height = height * rows;
+      const sheetCtx = sheet.getContext("2d");
+      sheetCtx.imageSmoothingEnabled = false;
+      sheetCtx.clearRect(0, 0, sheet.width, sheet.height);
+      state.frames.forEach((frame, index) => {
+        const col = index % columns;
+        const row = Math.floor(index / columns);
+        if (row >= rows) return;
+        sheetCtx.drawImage(frame.image, col * width + frame.dx, row * height + frame.dy);
+      });
+      downloadCanvas(sheet, "hero_idle_frames_256_aligned_sheet_5x2.png");
+      statusEl.textContent = `Exported 5x2 sheet ${sheet.width}x${sheet.height}.`;
+    }
+
+    function exportJson() {
+      const payload = {
+        frameWidth: state.frames[0]?.width ?? 0,
+        frameHeight: state.frames[0]?.height ?? 0,
+        baselineY: state.baselineY / state.scale,
+        frames: state.frames.map((frame, index) => ({
+          index: index + 1,
+          name: frame.name,
+          dx: frame.dx,
+          dy: frame.dy
+        }))
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const href = URL.createObjectURL(blob);
+      triggerDownload(href, uniqueDownloadName("hero_idle_frames_256_offsets.json"));
+      window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+      statusEl.textContent = "Exported offsets JSON.";
+    }
+
+    document.querySelectorAll("[data-nudge]").forEach((button) => {
+      const [dx, dy] = button.dataset.nudge.split(",").map(Number);
+      button.addEventListener("click", () => nudge(dx, dy));
+    });
+
+    document.getElementById("prevFrame").addEventListener("click", () => selectFrame(state.selected - 1));
+    document.getElementById("nextFrame").addEventListener("click", () => selectFrame(state.selected + 1));
+    document.getElementById("resetFrame").addEventListener("click", resetFrame);
+    document.getElementById("resetAll").addEventListener("click", resetAll);
+    playPause.addEventListener("click", togglePlayback);
+    document.getElementById("exportPngs").addEventListener("click", exportPngs);
+    document.getElementById("exportSheet").addEventListener("click", exportSheet);
+    document.getElementById("exportJson").addEventListener("click", exportJson);
+
+    document.getElementById("ghostSelected").addEventListener("click", () => {
+      state.showGhosts = new Set(state.frames.map((_, index) => index));
+      state.showGhosts.delete(state.selected);
+      buildPanels();
+      render();
+    });
+
+    document.getElementById("ghostAll").addEventListener("click", () => {
+      state.showGhosts = new Set(state.frames.map((_, index) => index));
+      buildPanels();
+      render();
+    });
+
+    document.getElementById("ghostNeighbors").addEventListener("click", () => {
+      const previous = (state.selected - 1 + state.frames.length) % state.frames.length;
+      const next = (state.selected + 1) % state.frames.length;
+      state.showGhosts = new Set([previous, next]);
+      buildPanels();
+      render();
+    });
+
+    document.getElementById("clearGhosts").addEventListener("click", () => {
+      state.showGhosts.clear();
+      buildPanels();
+      render();
+    });
+
+    ghostOpacity.addEventListener("input", () => {
+      state.ghostOpacity = Number(ghostOpacity.value);
+      ghostOpacityValue.textContent = state.ghostOpacity.toFixed(2);
+      render();
+    });
+
+    document.getElementById("fileInput").addEventListener("change", (event) => {
+      if (event.target.files.length) {
+        loadSelectedFiles(event.target.files).catch((error) => {
+          statusEl.textContent = error.message;
+        });
+      }
+    });
+
+    window.addEventListener("keydown", (event) => {
+      const step = event.shiftKey ? 5 : 1;
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        nudge(-step, 0);
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        nudge(step, 0);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        nudge(0, -step);
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        nudge(0, step);
+      } else if (event.key === "[") {
+        event.preventDefault();
+        selectFrame(state.selected - 1);
+      } else if (event.key === "]") {
+        event.preventDefault();
+        selectFrame(state.selected + 1);
+      } else if (event.key === " ") {
+        event.preventDefault();
+        togglePlayback();
+      } else if (event.key === "0") {
+        event.preventDefault();
+        resetFrame();
+      }
+    });
+
+    loadDefaultFrames().catch((error) => {
+      statusEl.textContent = `${error.message}. Use Load PNG Frames instead.`;
+      render();
+    });
+  </script>
+</body>
+</html>
