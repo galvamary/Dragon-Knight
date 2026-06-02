@@ -24,12 +24,22 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float coyoteTime = 0.1f;
     [SerializeField] private float jumpBufferTime = 0.1f;
 
+    [Header("Dash")]
+    [SerializeField] private InputActionReference dashAction;
+    [SerializeField] private float dashSpeed = 20f;
+    [SerializeField] private float dashDuration = 0.15f;
+    [SerializeField] private float dashCooldown = 0.8f;
+
     private Rigidbody2D rb;
     private Vector2 moveInput;
     private float coyoteTimeCounter;
     private float jumpBufferCounter;
     private bool isGrounded;
     private float defaultGravityScale;
+    private bool isDashing;
+    private float dashTimeLeft;
+    private float dashCooldownTimer;
+    private float dashDirection;
 
     private void Awake()
     {
@@ -42,16 +52,20 @@ public class PlayerMovement : MonoBehaviour
     {
         moveAction.action.Enable();
         jumpAction.action.Enable();
+        dashAction.action.Enable();
         jumpAction.action.started += OnJumpPressed;
         jumpAction.action.canceled += OnJumpReleased;
+        dashAction.action.started += OnDashPressed;
     }
 
     private void OnDisable()
     {
         jumpAction.action.started -= OnJumpPressed;
         jumpAction.action.canceled -= OnJumpReleased;
+        dashAction.action.started -= OnDashPressed;
         moveAction.action.Disable();
         jumpAction.action.Disable();
+        dashAction.action.Disable();
     }
 
     private void Update()
@@ -66,16 +80,32 @@ public class PlayerMovement : MonoBehaviour
             coyoteTimeCounter -= Time.deltaTime;
 
         jumpBufferCounter -= Time.deltaTime;
+        dashCooldownTimer -= Time.deltaTime;
 
         if (jumpBufferCounter > 0f && coyoteTimeCounter > 0f)
         {
             Jump();
             jumpBufferCounter = 0f;
         }
+
+        if (isDashing)
+        {
+            dashTimeLeft -= Time.deltaTime;
+            if (dashTimeLeft <= 0f)
+                isDashing = false;
+        }
     }
 
     private void FixedUpdate()
     {
+        if (isDashing)
+        {
+            // 대시 중에는 수평으로만 빠르게 이동, 중력 무시
+            rb.linearVelocity = new Vector2(dashDirection * dashSpeed, 0f);
+            rb.gravityScale = 0f;
+            return;
+        }
+
         rb.linearVelocity = new Vector2(moveInput.x * moveSpeed, rb.linearVelocity.y);
 
         if (rb.linearVelocity.y < 0f)
@@ -117,6 +147,19 @@ public class PlayerMovement : MonoBehaviour
     {
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
         coyoteTimeCounter = 0f;
+    }
+
+    private void OnDashPressed(InputAction.CallbackContext context)
+    {
+        if (isDashing || dashCooldownTimer > 0f)
+            return;
+
+        isDashing = true;
+        dashTimeLeft = dashDuration;
+        dashCooldownTimer = dashCooldown;
+
+        // 이동 입력 방향으로 대시, 입력 없으면 바라보는 방향으로
+        dashDirection = moveInput.x != 0f ? Mathf.Sign(moveInput.x) : transform.localScale.x;
     }
 
     private void OnDrawGizmosSelected()
