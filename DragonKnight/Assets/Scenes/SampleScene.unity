@@ -265,6 +265,10 @@ MonoBehaviour:
   lowJumpGravityMultiplier: 2
   coyoteTime: 0.1
   jumpBufferTime: 0.1
+  dashAction: {fileID: -7471211009204490832, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
+  dashSpeed: 20
+  dashDuration: 0.15
+  dashCooldown: 0.8
 --- !u!70 &311995924
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
