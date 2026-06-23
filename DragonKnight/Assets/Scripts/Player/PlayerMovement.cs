@@ -37,6 +37,10 @@ public class PlayerMovement : MonoBehaviour
     private bool isGrounded;
     private float defaultGravityScale;
     private bool isDashing;
+    public bool IsDashing => isDashing;
+    public bool IsGrounded => isGrounded;
+    public float MoveSpeed => Mathf.Abs(moveInput.x);
+    public float VelocityY => rb != null ? rb.linearVelocity.y : 0f;
     private float dashTimeLeft;
     private float dashCooldownTimer;
     private float dashDirection;

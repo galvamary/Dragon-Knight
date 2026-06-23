@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dragon Knight Video Frame Picker</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101722;
+      --panel: #151d2a;
+      --panel-2: #0b111a;
+      --line: #2b3647;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --blue: #60a5fa;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #facc15;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid #3a4658;
+      border-radius: 4px;
+      background: #253044;
+      color: var(--text);
+      padding: 7px 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #303c51;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: .45;
+    }
+
+    input[type="number"] {
+      width: 64px;
+      border: 1px solid #3a4658;
+      border-radius: 4px;
+      background: #0f1724;
+      color: var(--text);
+      padding: 7px 8px;
+    }
+
+    input[type="file"] {
+      color: var(--muted);
+      max-width: 320px;
+    }
+
+    .window-bar {
+      height: 34px;
+      display: grid;
+      grid-template-columns: 110px 1fr 110px;
+      align-items: center;
+      padding: 0 16px;
+      background: #2d333d;
+      border-bottom: 1px solid #10151e;
+      color: #d1d5db;
+      font-weight: 800;
+    }
+
+    .dots {
+      display: flex;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+    }
+
+    .red-dot { background: #ff5f57; }
+    .yellow-dot { background: #febc2e; }
+    .green-dot { background: #28c840; }
+    .title { text-align: center; }
+
+    .app {
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      min-height: calc(100vh - 34px);
+    }
+
+    .top {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #111827;
+    }
+
+    .top-left,
+    .legend,
+    .controls,
+    .statusbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .legend {
+      color: var(--muted);
+      font-weight: 800;
+      justify-content: flex-end;
+    }
+
+    .key {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    .swatch.view { background: var(--yellow); }
+    .swatch.pick { background: var(--blue); }
+    .swatch.start { background: var(--green); }
+    .swatch.end { background: var(--red); }
+
+    .viewer {
+      display: grid;
+      grid-template-columns: minmax(360px, 1fr) 280px;
+      gap: 16px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    .stage-wrap {
+      min-width: 0;
+      display: grid;
+      place-items: center;
+      background: var(--panel-2);
+      border: 1px solid #090d14;
+      min-height: 360px;
+    }
+
+    canvas {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    #stage {
+      width: min(72vh, 720px);
+      max-width: 100%;
+      max-height: 54vh;
+      background: #0b111a;
+    }
+
+    .side {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #101827;
+      padding: 10px;
+    }
+
+    .panel h2 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px 10px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .metrics strong {
+      color: var(--text);
+    }
+
+    .controls {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #111827;
+    }
+
+    .divider {
+      width: 1px;
+      height: 28px;
+      background: var(--line);
+    }
+
+    .statusbar {
+      margin-left: auto;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .thumbs {
+      min-height: 0;
+      overflow: auto;
+      padding: 12px 16px 18px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+      gap: 10px;
+      align-content: start;
+      background: #0f1724;
+    }
+
+    .thumb {
+      position: relative;
+      border: 3px solid #374151;
+      border-radius: 4px;
+      background: #f3f4f6;
+      color: #111827;
+      min-height: 112px;
+      padding: 6px;
+      cursor: pointer;
+    }
+
+    .thumb:hover {
+      border-color: #64748b;
+    }
+
+    .thumb.viewing {
+      border-color: var(--yellow);
+    }
+
+    .thumb.selected {
+      box-shadow: inset 0 0 0 4px var(--blue);
+    }
+
+    .thumb.start {
+      outline: 4px solid var(--green);
+      outline-offset: -8px;
+    }
+
+    .thumb.end {
+      outline: 4px solid var(--red);
+      outline-offset: -8px;
+    }
+
+    .thumb canvas {
+      width: 100%;
+      display: block;
+      background: #00ff00;
+    }
+
+    .thumb-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 4px;
+      margin-bottom: 4px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #475569;
+    }
+
+    .badge {
+      position: absolute;
+      left: 6px;
+      bottom: 6px;
+      border-radius: 3px;
+      background: #4b5563;
+      color: #f9fafb;
+      padding: 2px 4px;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .badge.on {
+      background: var(--blue);
+    }
+
+    video {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="window-bar">
+    <div class="dots">
+      <span class="dot red-dot"></span>
+      <span class="dot yellow-dot"></span>
+      <span class="dot green-dot"></span>
+    </div>
+    <div class="title">Dragon Knight Sprite Tool - Video Frame Picker</div>
+    <div></div>
+  </div>
+
+  <main class="app">
+    <section class="top">
+      <div class="top-left">
+        <input id="videoInput" type="file" accept="video/mp4,video/webm,video/quicktime,video/*">
+        <label>FPS <input id="fpsInput" type="number" value="24" min="1" max="60"></label>
+        <button id="extractBtn">Extract</button>
+      </div>
+      <div class="legend">
+        <span class="key"><span class="swatch view"></span>view</span>
+        <span class="key"><span class="swatch pick"></span>selected</span>
+        <span class="key"><span class="swatch start"></span>start</span>
+        <span class="key"><span class="swatch end"></span>end</span>
+      </div>
+    </section>
+
+    <section class="viewer">
+      <div class="stage-wrap">
+        <canvas id="stage" width="640" height="360"></canvas>
+      </div>
+      <aside class="side">
+        <div class="panel">
+          <h2>Current</h2>
+          <div class="metrics">
+            <span>Frame</span><strong id="currentFrame">-</strong>
+            <span>Time</span><strong id="currentTime">-</strong>
+            <span>Size</span><strong id="videoSize">-</strong>
+            <span>Frames</span><strong id="frameCount">0</strong>
+            <span>Selected</span><strong id="selectedCount">0</strong>
+            <span>Start</span><strong id="startFrame">-</strong>
+            <span>End</span><strong id="endFrame">-</strong>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Export</h2>
+          <div class="controls" style="padding:0;border:0;background:transparent">
+            <button id="exportPngsBtn">PNGs</button>
+            <button id="exportSheetBtn">Sheet 5x2</button>
+            <button id="exportJsonBtn">JSON</button>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="controls">
+      <button id="prevBtn">Prev</button>
+      <button id="nextBtn">Next</button>
+      <button id="toggleBtn">Toggle</button>
+      <div class="divider"></div>
+      <button id="setStartBtn">Set Start</button>
+      <button id="setEndBtn">Set End</button>
+      <label>N <input id="pickCountInput" type="number" value="8" min="1" max="24"></label>
+      <button id="distributeBtn">Distribute</button>
+      <button id="clearBtn">Clear</button>
+      <div class="statusbar" id="status">Load a video.</div>
+    </section>
+
+    <section class="thumbs" id="thumbs"></section>
+  </main>
+
+  <video id="video" muted playsinline></video>
+
+  <script>
+    const state = {
+      objectUrl: "",
+      frames: [],
+      current: 0,
+      selected: new Set(),
+      start: null,
+      end: null,
+      videoName: "video"
+    };
+
+    const videoInput = document.getElementById("videoInput");
+    const fpsInput = document.getElementById("fpsInput");
+    const extractBtn = document.getElementById("extractBtn");
+    const video = document.getElementById("video");
+    const stage = document.getElementById("stage");
+    const stageCtx = stage.getContext("2d");
+    const thumbs = document.getElementById("thumbs");
+    const statusEl = document.getElementById("status");
+    const currentFrameEl = document.getElementById("currentFrame");
+    const currentTimeEl = document.getElementById("currentTime");
+    const videoSizeEl = document.getElementById("videoSize");
+    const frameCountEl = document.getElementById("frameCount");
+    const selectedCountEl = document.getElementById("selectedCount");
+    const startFrameEl = document.getElementById("startFrame");
+    const endFrameEl = document.getElementById("endFrame");
+    const pickCountInput = document.getElementById("pickCountInput");
+
+    stageCtx.imageSmoothingEnabled = false;
+
+    function pad(number, width = 4) {
+      return String(number).padStart(width, "0");
+    }
+
+    function timestampSuffix() {
+      const now = new Date();
+      return [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, "0"),
+        String(now.getDate()).padStart(2, "0")
+      ].join("") + "-" + [
+        String(now.getHours()).padStart(2, "0"),
+        String(now.getMinutes()).padStart(2, "0"),
+        String(now.getSeconds()).padStart(2, "0")
+      ].join("");
+    }
+
+    function uniqueName(name, batch = timestampSuffix()) {
+      return name.replace(/(\.[^.]+)$/, `-${batch}$1`);
+    }
+
+    function triggerDownload(href, name) {
+      const link = document.createElement("a");
+      link.href = href;
+      link.download = name;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      window.setTimeout(() => link.remove(), 1000);
+    }
+
+    function canvasToPngUrl(canvas) {
+      return canvas.toDataURL("image/png");
+    }
+
+    function drawImageContain(ctx, image, width, height) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, width, height);
+      const scale = Math.min(width / image.width, height / image.height);
+      const drawWidth = Math.max(1, Math.round(image.width * scale));
+      const drawHeight = Math.max(1, Math.round(image.height * scale));
+      const x = Math.round((width - drawWidth) / 2);
+      const y = Math.round((height - drawHeight) / 2);
+      ctx.drawImage(image, x, y, drawWidth, drawHeight);
+    }
+
+    function updateMetrics() {
+      const frame = state.frames[state.current];
+      currentFrameEl.textContent = frame ? pad(frame.index + 1) : "-";
+      currentTimeEl.textContent = frame ? `${frame.time.toFixed(3)}s` : "-";
+      videoSizeEl.textContent = frame ? `${frame.width}x${frame.height}` : "-";
+      frameCountEl.textContent = state.frames.length;
+      selectedCountEl.textContent = state.selected.size;
+      startFrameEl.textContent = state.start === null ? "-" : pad(state.start + 1);
+      endFrameEl.textContent = state.end === null ? "-" : pad(state.end + 1);
+    }
+
+    function renderStage() {
+      const frame = state.frames[state.current];
+      stageCtx.clearRect(0, 0, stage.width, stage.height);
+      if (!frame) {
+        stageCtx.fillStyle = "#0b111a";
+        stageCtx.fillRect(0, 0, stage.width, stage.height);
+        updateMetrics();
+        return;
+      }
+      stage.width = frame.width;
+      stage.height = frame.height;
+      stageCtx.imageSmoothingEnabled = false;
+      stageCtx.drawImage(frame.image, 0, 0);
+      updateMetrics();
+    }
+
+    function renderThumbs() {
+      thumbs.innerHTML = "";
+      state.frames.forEach((frame, index) => {
+        const item = document.createElement("button");
+        item.className = "thumb";
+        item.type = "button";
+        item.dataset.index = String(index);
+
+        const label = document.createElement("div");
+        label.className = "thumb-label";
+        label.innerHTML = `<span>${pad(index + 1)}</span><span>${frame.time.toFixed(2)}s</span>`;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = 96;
+        canvas.height = 72;
+        const ctx = canvas.getContext("2d");
+        drawImageContain(ctx, frame.image, canvas.width, canvas.height);
+
+        const badge = document.createElement("span");
+        badge.className = "badge";
+        badge.textContent = "OFF";
+
+        item.append(label, canvas, badge);
+        item.addEventListener("click", () => selectFrame(index));
+        item.addEventListener("dblclick", () => toggleSelected(index));
+        thumbs.appendChild(item);
+      });
+      syncThumbClasses();
+    }
+
+    function syncThumbClasses() {
+      [...thumbs.children].forEach((item, index) => {
+        item.classList.toggle("viewing", index === state.current);
+        item.classList.toggle("selected", state.selected.has(index));
+        item.classList.toggle("start", index === state.start);
+        item.classList.toggle("end", index === state.end);
+        const badge = item.querySelector(".badge");
+        badge.classList.toggle("on", state.selected.has(index));
+        badge.textContent = state.selected.has(index) ? "ON" : "OFF";
+      });
+      updateMetrics();
+    }
+
+    function selectFrame(index) {
+      if (!state.frames.length) return;
+      state.current = Math.max(0, Math.min(index, state.frames.length - 1));
+      renderStage();
+      syncThumbClasses();
+      const currentThumb = thumbs.children[state.current];
+      currentThumb?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+
+    function moveFrame(delta) {
+      selectFrame(state.current + delta);
+    }
+
+    function toggleSelected(index = state.current) {
+      if (!state.frames[index]) return;
+      if (state.selected.has(index)) state.selected.delete(index);
+      else state.selected.add(index);
+      syncThumbClasses();
+    }
+
+    function setStart() {
+      if (!state.frames.length) return;
+      state.start = state.current;
+      if (state.end !== null && state.end < state.start) state.end = state.start;
+      syncThumbClasses();
+    }
+
+    function setEnd() {
+      if (!state.frames.length) return;
+      state.end = state.current;
+      if (state.start !== null && state.start > state.end) state.start = state.end;
+      syncThumbClasses();
+    }
+
+    function distribute() {
+      if (state.start === null || state.end === null) {
+        statusEl.textContent = "Set start and end.";
+        return;
+      }
+      const start = Math.min(state.start, state.end);
+      const end = Math.max(state.start, state.end);
+      const count = Math.max(1, Number(pickCountInput.value) || 1);
+      state.selected.clear();
+      if (count === 1 || start === end) {
+        state.selected.add(start);
+      } else {
+        for (let i = 0; i < count; i += 1) {
+          const t = i / (count - 1);
+          const index = Math.round(start + (end - start) * t);
+          state.selected.add(index);
+        }
+      }
+      statusEl.textContent = `Distributed ${state.selected.size} frame(s).`;
+      syncThumbClasses();
+    }
+
+    function clearSelection() {
+      state.selected.clear();
+      state.start = null;
+      state.end = null;
+      statusEl.textContent = "Cleared.";
+      syncThumbClasses();
+    }
+
+    function waitForVideoEvent(name) {
+      return new Promise((resolve) => {
+        video.addEventListener(name, resolve, { once: true });
+      });
+    }
+
+    async function seekVideo(time) {
+      const target = Math.min(Math.max(time, 0), Math.max(video.duration - 0.001, 0));
+      if (Math.abs(video.currentTime - target) < 0.0005) return;
+      const done = waitForVideoEvent("seeked");
+      video.currentTime = target;
+      await done;
+    }
+
+    async function extractFrames() {
+      if (!videoInput.files?.[0]) {
+        statusEl.textContent = "Choose a video.";
+        return;
+      }
+
+      if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
+      const file = videoInput.files[0];
+      state.videoName = file.name.replace(/\.[^.]+$/, "") || "video";
+      state.objectUrl = URL.createObjectURL(file);
+      video.src = state.objectUrl;
+      await waitForVideoEvent("loadedmetadata");
+
+      const fps = Math.max(1, Math.min(60, Number(fpsInput.value) || 24));
+      const duration = video.duration || 0;
+      const total = Math.max(1, Math.floor(duration * fps) + 1);
+      const sourceCanvas = document.createElement("canvas");
+      sourceCanvas.width = video.videoWidth;
+      sourceCanvas.height = video.videoHeight;
+      const sourceCtx = sourceCanvas.getContext("2d");
+      sourceCtx.imageSmoothingEnabled = false;
+
+      state.frames = [];
+      state.current = 0;
+      state.selected.clear();
+      state.start = null;
+      state.end = null;
+      thumbs.innerHTML = "";
+      statusEl.textContent = `Extracting 0/${total}`;
+
+      for (let i = 0; i < total; i += 1) {
+        const time = Math.min(i / fps, Math.max(duration - 0.001, 0));
+        await seekVideo(time);
+        sourceCtx.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height);
+        sourceCtx.drawImage(video, 0, 0, sourceCanvas.width, sourceCanvas.height);
+        const image = new Image();
+        image.src = canvasToPngUrl(sourceCanvas);
+        await image.decode();
+        state.frames.push({
+          index: i,
+          time,
+          width: sourceCanvas.width,
+          height: sourceCanvas.height,
+          image,
+          url: image.src
+        });
+        if (i % 8 === 0 || i === total - 1) statusEl.textContent = `Extracting ${i + 1}/${total}`;
+      }
+
+      renderThumbs();
+      selectFrame(0);
+      statusEl.textContent = `Extracted ${state.frames.length} frame(s).`;
+    }
+
+    function selectedFrames() {
+      return [...state.selected]
+        .sort((a, b) => a - b)
+        .map((index) => state.frames[index])
+        .filter(Boolean);
+    }
+
+    function exportPngs() {
+      const frames = selectedFrames();
+      if (!frames.length) {
+        statusEl.textContent = "No selected frames.";
+        return;
+      }
+      const batch = timestampSuffix();
+      frames.forEach((frame, outIndex) => {
+        window.setTimeout(() => {
+          triggerDownload(
+            frame.url,
+            uniqueName(`${state.videoName}_frame_${pad(outIndex + 1)}_src_${pad(frame.index + 1)}.png`, batch)
+          );
+        }, outIndex * 250);
+      });
+      statusEl.textContent = "Exporting PNGs.";
+    }
+
+    function exportSheet() {
+      const frames = selectedFrames();
+      if (!frames.length) {
+        statusEl.textContent = "No selected frames.";
+        return;
+      }
+      const columns = 5;
+      const rows = Math.ceil(frames.length / columns);
+      const width = frames[0].width;
+      const height = frames[0].height;
+      const sheet = document.createElement("canvas");
+      sheet.width = width * columns;
+      sheet.height = height * rows;
+      const ctx = sheet.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, sheet.width, sheet.height);
+      frames.forEach((frame, index) => {
+        const col = index % columns;
+        const row = Math.floor(index / columns);
+        ctx.drawImage(frame.image, col * width, row * height);
+      });
+      triggerDownload(canvasToPngUrl(sheet), uniqueName(`${state.videoName}_selected_sheet_5x${rows}.png`));
+      statusEl.textContent = `Exported sheet ${sheet.width}x${sheet.height}.`;
+    }
+
+    function exportJson() {
+      const payload = {
+        videoName: state.videoName,
+        frameCount: state.frames.length,
+        selectedCount: state.selected.size,
+        start: state.start === null ? null : state.start + 1,
+        end: state.end === null ? null : state.end + 1,
+        selected: [...state.selected].sort((a, b) => a - b).map((index, order) => ({
+          order: order + 1,
+          frame: index + 1,
+          time: state.frames[index].time
+        }))
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const href = URL.createObjectURL(blob);
+      triggerDownload(href, uniqueName(`${state.videoName}_frame_selection.json`));
+      window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+    }
+
+    videoInput.addEventListener("change", () => {
+      statusEl.textContent = videoInput.files?.[0]?.name ?? "Load a video.";
+    });
+    extractBtn.addEventListener("click", extractFrames);
+    document.getElementById("prevBtn").addEventListener("click", () => moveFrame(-1));
+    document.getElementById("nextBtn").addEventListener("click", () => moveFrame(1));
+    document.getElementById("toggleBtn").addEventListener("click", () => toggleSelected());
+    document.getElementById("setStartBtn").addEventListener("click", setStart);
+    document.getElementById("setEndBtn").addEventListener("click", setEnd);
+    document.getElementById("distributeBtn").addEventListener("click", distribute);
+    document.getElementById("clearBtn").addEventListener("click", clearSelection);
+    document.getElementById("exportPngsBtn").addEventListener("click", exportPngs);
+    document.getElementById("exportSheetBtn").addEventListener("click", exportSheet);
+    document.getElementById("exportJsonBtn").addEventListener("click", exportJson);
+
+    window.addEventListener("keydown", (event) => {
+      if (event.target instanceof HTMLInputElement) return;
+      if (event.key === "ArrowLeft") moveFrame(-1);
+      if (event.key === "ArrowRight") moveFrame(1);
+      if (event.key === " ") {
+        event.preventDefault();
+        toggleSelected();
+      }
+      if (event.key === "s") setStart();
+      if (event.key === "e") setEnd();
+      if (event.key === "Enter") distribute();
+    });
+
+    renderStage();
+  </script>
+</body>
+</html>
