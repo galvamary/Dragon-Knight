@@ -13,17 +13,25 @@ public class EnemyPatrolState : IEnemyState
     public void Enter()
     {
         direction = 1f;
-        enemy.transform.localScale = new Vector3(direction, 1f, 1f);
+        enemy.transform.localScale = new Vector3(direction*0.6f, 0.6f, 1f);
     }
 
-    public void Update() { }
+    public void Update()
+    {
+        if (enemy.Player == null) return;
+
+        Vector2 origin = enemy.transform.position;
+        RaycastHit2D hit = Physics2D.Raycast(origin, new Vector2(direction, 0f), enemy.DetectionRange, enemy.PlayerLayer);
+        if (hit.collider != null)
+            enemy.ChangeState(new EnemyAttackState(enemy));
+    }
 
     public void FixedUpdate()
     {
         if (ShouldReverse())
         {
             direction *= -1f;
-            enemy.transform.localScale = new Vector3(direction, 1f, 1f);
+            enemy.transform.localScale = new Vector3(direction*0.6f, 0.6f, 1f);
         }
 
         enemy.Rb.linearVelocity = new Vector2(
